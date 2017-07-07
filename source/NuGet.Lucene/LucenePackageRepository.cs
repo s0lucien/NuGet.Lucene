@@ -178,36 +178,35 @@ namespace NuGet.Lucene
             return Task.FromResult(Convert(package));
         }
 
-        private async Task<IFastZipPackage> DownloadDataServicePackage(DataServicePackage dataPackage, CancellationToken cancellationToken)
+        private async Task<IFastZipPackage> DownloadDataServicePackage(DataServicePackage dataPackage,
+            CancellationToken cancellationToken)
         {
             var assembly = typeof(LucenePackageRepository).Assembly;
 
-            using (var client = CreateHttpClient())
+            HttpClient client = CreateHttpClient(dataPackage.DownloadUrl);
+            client.UserAgent =
+                (new ProductInfoHeaderValue(assembly.GetName().Name, assembly.GetName().Version.ToString())).ToString();
+
+            client.SendingRequest += (s, e) =>
             {
-                client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(assembly.GetName().Name,
-                    assembly.GetName().Version.ToString()));
-                client.DefaultRequestHeaders.Add(RepositoryOperationNames.OperationHeaderName,
-                    RepositoryOperationNames.Mirror);
+                e.Request.Headers.Add(RepositoryOperationNames.OperationHeaderName, RepositoryOperationNames.Mirror);
 
-                Stream stream;
-                using (cancellationToken.Register(client.CancelPendingRequests))
-                {
-                    stream = await client.GetStreamAsync(dataPackage.DownloadUrl);
-                }
+            };
 
+            using (HashingWriteStream hashingStream = CreateStreamForStagingPackage())
+            {
+                client.DownloadData(hashingStream);
                 cancellationToken.ThrowIfCancellationRequested();
-
-                using (var hashingStream = CreateStreamForStagingPackage())
-                {
-                    await stream.CopyToAsync(hashingStream, 4096, cancellationToken);
-                    return LoadStagedPackage(hashingStream);
-                }
+                return LoadStagedPackage(hashingStream);
+                
             }
         }
 
-        protected virtual System.Net.Http.HttpClient CreateHttpClient()
+        protected virtual HttpClient CreateHttpClient(Uri url)
         {
-            return new System.Net.Http.HttpClient(new System.Net.Http.HttpClientHandler() { UseDefaultCredentials = true });
+            var cli =
+                new HttpClient(url);
+            return cli;
         }
 
         protected virtual Stream OpenFileWriteStream(string path)

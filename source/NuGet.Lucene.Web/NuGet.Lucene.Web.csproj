@@ -188,6 +188,7 @@
   <ItemGroup>
     <Compile Include="Authentication\ApiUser.cs" />
     <Compile Include="Authentication\ApiUserPrincipal.cs" />
+    <Compile Include="BasicAuthCredentialProvider.cs" />
     <Compile Include="Controllers\ApiControllerBase.cs" />
     <Compile Include="Controllers\PackagesODataController.cs" />
     <Compile Include="Controllers\SourceFilesController.cs" />

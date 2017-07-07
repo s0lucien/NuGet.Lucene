@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Text.RegularExpressions;
+using System.Threading;
 using NuGet.Lucene.Web.Models;
 using NuGet.Lucene.Web.Util;
 
@@ -17,7 +21,30 @@ namespace NuGet.Lucene.Web
                 return new NonMirroringPackageRepository(localRepository);
             }
 
-            var remoteRepositories = remotePackageUrl.Split(';').Select(s => CreateDataServicePackageRepository(new HttpClient(new Uri(s)), timeout)).ToArray();
+            //while (!Debugger.IsAttached){Thread.Sleep(100);} ; Console.WriteLine("Debugger attached");
+            var remoteRepositoryNames = remotePackageUrl.Split(';');
+            string pattern = @"^(https?://)(.*)@(.*)$";
+            var regex = new Regex(pattern);
+            var repos = new List<DataServicePackageRepository>();
+
+            foreach (var s in remoteRepositoryNames)
+            {
+                if (regex.IsMatch(s))
+                {
+                    Match m = regex.Match(s);
+                    var credentials = m.Groups[2].Value.Split(':');
+                    var url = m.Groups[1].Value + m.Groups[3].Value;
+                    var creds = new BasicAuthCredentialProvider(credentials[0],credentials[1]);
+                    
+                    HttpClient.DefaultCredentialProvider = creds;
+                    repos.Add(CreateDataServicePackageRepository(new HttpClient(new Uri(url)), timeout));
+                }
+                else
+                {
+                    repos.Add(CreateDataServicePackageRepository(new HttpClient(new Uri(s)), timeout));
+                }
+            }
+            DataServicePackageRepository[] remoteRepositories = repos.ToArray();
 
             if (alwaysCheckMirror)
             {
@@ -31,21 +58,23 @@ namespace NuGet.Lucene.Web
         {
             var userAgent = string.Format("{0}/{1} ({2})",
                                           UserAgent,
-                                          typeof (MirroringPackageRepositoryFactory).Assembly.GetName().Version,
+                                          typeof(MirroringPackageRepositoryFactory).Assembly.GetName().Version,
                                           Environment.OSVersion);
 
             var remoteRepository = new DataServicePackageRepository(httpClient);
 
             remoteRepository.SendingRequest += (s, e) =>
-                {
-                    e.Request.Timeout = (int) timeout.TotalMilliseconds;
+            {
+                e.Request.Timeout = (int)timeout.TotalMilliseconds;
 
-                    ((HttpWebRequest) e.Request).UserAgent = userAgent;
+                ((HttpWebRequest)e.Request).UserAgent = userAgent;
 
-                    e.Request.Headers.Add(RepositoryOperationNames.OperationHeaderName, RepositoryOperationNames.Mirror);
-                };
+                e.Request.Headers.Add(RepositoryOperationNames.OperationHeaderName, RepositoryOperationNames.Mirror);
+            };
 
             return remoteRepository;
         }
+
     }
+
 }
