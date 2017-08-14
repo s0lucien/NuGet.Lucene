@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using NuGet.Lucene.Web.Models;
@@ -35,9 +36,11 @@ namespace NuGet.Lucene.Web
                     var credentials = m.Groups[2].Value.Split(':');
                     var url = m.Groups[1].Value + m.Groups[3].Value;
                     var creds = new BasicAuthCredentialProvider(credentials[0],credentials[1]);
-                    
+                    String credString = $"{credentials[0]}:{credentials[1]}";
+                    credString = Convert.ToBase64String(ASCIIEncoding.ASCII.GetBytes(credString));
+                    credString = $"Basic {credString}";
                     HttpClient.DefaultCredentialProvider = creds;
-                    repos.Add(CreateDataServicePackageRepository(new HttpClient(new Uri(url)), timeout));
+                    repos.Add(CreateDataServicePackageRepository(new HttpClient(new Uri(url)), timeout, credString));
                 }
                 else
                 {
@@ -52,6 +55,28 @@ namespace NuGet.Lucene.Web
             }
 
             return new MirroringPackageRepository(localRepository, remoteRepositories, new WebCache());
+        }
+
+        public static DataServicePackageRepository CreateDataServicePackageRepository(IHttpClient httpClient, TimeSpan timeout, String base64Creds)
+        {
+            var userAgent = string.Format("{0}/{1} ({2})",
+                                          UserAgent,
+                                          typeof(MirroringPackageRepositoryFactory).Assembly.GetName().Version,
+                                          Environment.OSVersion);
+
+            var remoteRepository = new DataServicePackageRepository(httpClient);
+
+            remoteRepository.SendingRequest += (s, e) =>
+            {
+                e.Request.Timeout = (int)timeout.TotalMilliseconds;
+
+                ((HttpWebRequest)e.Request).UserAgent = userAgent;
+                ((HttpWebRequest)e.Request).Headers[HttpRequestHeader.Authorization] = base64Creds;
+
+                e.Request.Headers.Add(RepositoryOperationNames.OperationHeaderName, RepositoryOperationNames.Mirror);
+            };
+
+            return remoteRepository;
         }
 
         public static DataServicePackageRepository CreateDataServicePackageRepository(IHttpClient httpClient, TimeSpan timeout)

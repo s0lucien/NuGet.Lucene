@@ -290,18 +290,18 @@
     <None Include="readme.markdown" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\NuGet.Lucene\NuGet.Lucene.csproj">
-      <Project>{A47CE7D5-F919-4B4C-8569-F3113F4BDC68}</Project>
-      <Name>NuGet.Lucene</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Content Include="NuGet.Lucene.Web.nuspec">
       <SubType>Designer</SubType>
     </Content>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Hubs\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NuGet.Lucene\NuGet.Lucene.csproj">
+      <Project>{a47ce7d5-f919-4b4c-8569-f3113f4bdc68}</Project>
+      <Name>NuGet.Lucene</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>
